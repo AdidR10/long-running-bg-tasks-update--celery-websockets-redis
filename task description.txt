@@ -1,0 +1,1 @@
+6. Develop a system that provides real-time updates on long-running background tasks using WebSockets for client communication, Celery for task processing, and Redis for state management. How would you ensure reliable message delivery and handle client reconnections? [@⁨Adid⁩ ]
