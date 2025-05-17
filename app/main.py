@@ -6,11 +6,12 @@ from fastapi.responses import JSONResponse
 from redis import Redis
 import aioredis
 from app.tasks import long_running_task
+import time
 
 app = FastAPI()
 
 # Initialize Redis client
-redis_client = Redis(host="localhost", port=6379, db=0)
+redis_client = Redis(host="redis", port=6379, db=0)
 
 # Store active WebSocket connections
 active_connections = {}
@@ -39,7 +40,7 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
     active_connections[task_id].append(websocket)
 
     # Create Redis Pub/Sub client
-    redis_pubsub = aioredis.Redis.from_url("redis://localhost:6379/0")
+    redis_pubsub = aioredis.Redis.from_url("redis://redis:6379/0")
     pubsub = redis_pubsub.pubsub()
     await pubsub.subscribe(f"task:{task_id}:updates")
 

@@ -4,8 +4,8 @@ from celery import Celery
 # Configure Celery with Redis as broker and backend
 celery_app = Celery(
     "tasks",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0",
+    broker="redis://redis:6379/0",
+    backend="redis://redis:6379/0",
     include=["app.tasks"]
 )
 

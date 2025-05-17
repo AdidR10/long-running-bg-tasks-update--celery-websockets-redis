@@ -4,3 +4,4 @@ celery==5.4.0
 redis==5.0.8
 python-socketio==5.11.4
 aiohttp==3.10.5
+aioredis==2.0.1

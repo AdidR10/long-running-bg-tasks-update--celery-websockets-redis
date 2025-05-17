@@ -7,7 +7,7 @@ from redis import Redis
 from app.celery_config import celery_app
 
 # Initialize Redis client for state management
-redis_client = Redis(host="localhost", port=6379, db=0)
+redis_client = Redis(host="redis", port=6379, db=0)
 
 @celery_app.task(bind=True)
 def long_running_task(self, task_id: str):
