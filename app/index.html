@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Task Status</title>
+    <style>
+        /* Basic styling for better layout */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .task-info {
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Task Status</h1>
+    <div class="task-info" id="currentTaskId"></div>
+    <button onclick="startNewTask()">Start New Task</button>
+    <br><br>
+    <label for="taskIdInput">Enter Task ID to Observe:</label>
+    <input type="text" id="taskIdInput" placeholder="e.g., cb7a8531-9c4a-4aa4-9956-516cf976467c">
+    <button onclick="observeTask()">Observe Task</button>
+    <div class="status" id="status"></div>
+
+    <script>
+        function updateTaskIdDisplay(taskId) {
+            document.getElementById('currentTaskId').innerText = `Current Task ID: ${taskId || 'None'}`;
+        }
+
+        async function startNewTask() {
+            try {
+                document.getElementById('status').innerText = ``;
+                const response = await fetch('http://127.0.0.1:8000/start-task', { method: 'POST' });
+                if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
+                const { task_id } = await response.json();
+                updateTaskIdDisplay(task_id);
+                connectWebSocket(task_id, 'new');
+            } catch (error) {
+                console.error('Error starting new task:', error);
+                document.getElementById('status').innerText = `Error: ${error.message}`;
+            }
+        }
+
+        function observeTask() {
+            document.getElementById('status').innerText = ``;
+            const taskId = document.getElementById('taskIdInput').value.trim();
+            if (!taskId) {
+                alert('Please enter a valid Task ID');
+                return;
+            }
+            updateTaskIdDisplay(taskId);
+            connectWebSocket(taskId, 'existing');
+        }
+
+        function connectWebSocket(taskId, taskType) {
+            const statusDiv = document.getElementById('status');
+            const ws = new WebSocket(`ws://127.0.0.1:8000/ws/task/${taskId}`);
+            let statusContent = statusDiv.innerHTML; // Preserve existing content for multiple tasks
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                // Append new task update without overwriting others
+                currentTaskId = document.getElementById('currentTaskId').innerText;
+                const displayedTaskId = currentTaskId.replace("Current Task ID: ", "");
+                if (displayedTaskId == data.task_id) {
+                    statusContent += `<p>Task: ${data.task_id}, Status: ${data.status}, Progress: ${data.progress}%</p>`;
+                    statusDiv.innerHTML = statusContent;
+                    statusDiv.scrollTop = statusDiv.scrollHeight; // Auto-scroll to latest update
+                }
+            };
+            ws.onerror = (error) => {
+                console.error(`WebSocket error for ${taskId}:`, error);
+                statusContent += `<p>WebSocket error for ${taskId}. Check console.</p>`;
+                statusDiv.innerHTML = statusContent;
+            };
+            ws.onclose = () => {
+                statusContent += `<p>Disconnected from ${taskId}. Reconnecting...</p>`;
+                statusDiv.innerHTML = statusContent;
+                setTimeout(() => connectWebSocket(taskId, taskType), 5000); // Reconnect to same task
+            };
+        }
+    </script>
+</body>
+</html>

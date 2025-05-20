@@ -2,7 +2,7 @@
 import uuid
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from redis import Redis
 import aioredis
 from app.tasks import long_running_task
@@ -16,6 +16,10 @@ redis_client = Redis(host="redis", port=6379, db=0)
 # Store active WebSocket connections
 active_connections = {}
 
+@app.get("/")
+async def get_index():
+    return FileResponse("app/index.html")
+
 @app.post("/start-task")
 async def start_task():
     """Start a long-running task and return task ID."""
@@ -25,7 +29,7 @@ async def start_task():
         "status": "PENDING",
         "progress": 0,
         "timestamp": str(time.time())
-    })
+    })                         
     # Trigger Celery task
     long_running_task.delay(task_id)
     return JSONResponse({"task_id": task_id})
@@ -66,6 +70,7 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
                     "progress": int(task_state.get(b"progress", b"0").decode()),
                     "timestamp": float(task_state.get(b"timestamp", b"0").decode())
                 })
+        # long_running_task.delay(task_id)
     except WebSocketDisconnect:
         # Remove WebSocket on disconnect
         active_connections[task_id].remove(websocket)
