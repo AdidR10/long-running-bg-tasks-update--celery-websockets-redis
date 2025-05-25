@@ -11,9 +11,28 @@ services:
       - redis
     environment:
       - PYTHONUNBUFFERED=1
-  worker:
+  worker-1:
     build: .
-    command: celery -A app.celery_config.celery_app worker --loglevel=info
+    command: celery -A app.celery_config.celery_app worker --loglevel=info --concurrency=1
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    environment:
+      - PYTHONUNBUFFERED=1
+  worker-2:
+    build: .
+    command: celery -A app.celery_config.celery_app worker --loglevel=info --concurrency=1
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    environment:
+      - PYTHONUNBUFFERED=1
+  
+  worker-3:
+    build: .
+    command: celery -A app.celery_config.celery_app worker --loglevel=info --concurrency=1
     volumes:
       - .:/app
     depends_on:
@@ -23,4 +42,4 @@ services:
   redis:
     image: redis:6-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"

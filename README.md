@@ -99,6 +99,61 @@ sudo docker-compose up --build
 This starts three services: web (FastAPI), worker (Celery), and redis.
 The FastAPI server will be accessible at http://127.0.0.1:8000.
 
+### Scaling Celery Workers
+For better performance and handling multiple tasks concurrently, you can scale your Celery workers in two ways:
+
+#### Option 1: Increase Worker Concurrency
+Modify the worker command in `docker-compose.yml` to add `--concurrency=3`:
+```yaml
+worker:
+  build: .
+  command: celery -A app.celery_config.celery_app worker --loglevel=info --concurrency=3
+  volumes:
+    - .:/app
+  depends_on:
+    - redis
+  environment:
+    - PYTHONUNBUFFERED=1
+```
+This starts one worker process with 3 threads/processes, allowing it to handle 3 tasks simultaneously.
+
+#### Option 2: Multiple Worker Services
+Define multiple worker services in `docker-compose.yml`:
+```yaml
+worker1:
+  build: .
+  command: celery -A app.celery_config.celery_app worker --loglevel=info
+  volumes:
+    - .:/app
+  depends_on:
+    - redis
+  environment:
+    - PYTHONUNBUFFERED=1
+
+worker2:
+  build: .
+  command: celery -A app.celery_config.celery_app worker --loglevel=info
+  volumes:
+    - .:/app
+  depends_on:
+    - redis
+  environment:
+    - PYTHONUNBUFFERED=1
+
+worker3:
+  build: .
+  command: celery -A app.celery_config.celery_app worker --loglevel=info
+  volumes:
+    - .:/app
+  depends_on:
+    - redis
+  environment:
+    - PYTHONUNBUFFERED=1
+```
+This creates 3 separate worker processes, each handling one task at a time, providing better isolation and fault tolerance.
+
+**Recommendation**: Use Option 1 for development and testing, and Option 2 for production environments where you need better process isolation and fault tolerance.
+
 ### Note for WSL Users
 If you're on Windows Subsystem for Linux (WSL), 127.0.0.1 might not work from your browser due to networking. Use your WSL IP instead:
 ```bash
@@ -208,6 +263,12 @@ task-1/
 # 🏗️ System Architecture
 The system is designed as a distributed application with components interacting to process tasks and deliver updates. Here's a high-level overview:
 
+## Architecture Diagram (Conceptual)
+![Architecture Diagram](resources/architecture.jpg)
+
+## Simply put:
+![Architecture2 Diagram](resources/architecture2.png)
+
 ## Components
 ### FastAPI Server (web service):
 - Handles HTTP and WebSocket requests.
@@ -229,23 +290,24 @@ The system is designed as a distributed application with components interacting 
 - Starts tasks via HTTP requests and receives real-time updates via WebSocket.
 
 ## Architecture Diagram (Conceptual)
-```
-[Client (Browser)] <--> [FastAPI Server (WebSocket/HTTP)]
-        |                        |
-        |                        |
-        |                  [Celery Worker]
-        |                        |
-        |                        |
-       [Redis (Broker/State/PubSub)]
-```
-
+![Architecture Diagram](resources/architecture.jpg)
 - Client <--> FastAPI: HTTP (/start-task) to initiate tasks, WebSocket (/ws/task/{task_id}) for updates.
 - FastAPI <--> Celery: FastAPI sends tasks to Celery via Redis.
 - Celery <--> Redis: Celery updates task states in Redis and publishes updates.
 - FastAPI <--> Redis: FastAPI listens to Redis Pub/Sub to get updates and forwards them to the client.
 
 # 🔄 Entire Workflow
+## Main workflow:
+--------------
+![Flow](https://www.mermaidchart.com/raw/36b18d8c-43f6-49d9-8058-eb9a6d08fd09?theme=light&version=v0.1&format=svg)
 
+## Redis Publisher Subscriber workflow
+-----------------------------------
+![Redis Pub Sub flow](resources/Redis%20PubSub.jpg)
+
+## Websocket
+-----------------------------------
+![websocket](resources/websocket.jpg)
 ## 1. User Interaction
 - The user accesses http://127.0.0.1:8000, loading index.html.
 - Options:
@@ -303,6 +365,9 @@ The system is designed as a distributed application with components interacting 
 2. Click "Start New Task" button.
 3. Note the task_id displayed and watch updates:
 
+![Starting a New Task](resources/ss/ui-start-task.png)
+*Screenshot showing the initial interface with "Start New Task" button*
+
 ```
 Current Task ID: e2f62903-48f4-4ae1-b607-15608c935a50
 Task: e2f62903-48f4-4ae1-b607-15608c935a50, Status: STARTED, Progress: 25%
@@ -310,15 +375,25 @@ Task: e2f62903-48f4-4ae1-b607-15608c935a50, Status: PROCESSING, Progress: 50%
 ...
 ```
 
+![Task Progress Updates](resources/ss/ui-task-progress.png)
+*Screenshot showing real-time task progress updates in the browser*
+
 ## Observing an Existing Task
 1. Start a task and note its task_id.
 2. Enter the task_id in the input field.
 3. Click "Observe Task" to see its current and future updates.
 
+![Observing an Existing Task](resources/ss/ui-observe-task.png)
+*Screenshot showing the task ID input field and "Observe Task" functionality*
+*Started observing from 25% progress*
+
 ## Concurrent Monitoring
 - Start multiple tasks or observe different task_ids.
 - Updates for each task are appended to the status display.
 - Each task progress is tracked independently.
+
+![Concurrent Task Monitoring](resources/ss/ui-concurrent-tasks.png)
+*Screenshot showing multiple tasks being monitored simultaneously with their respective progress updates*
 
 # 🧪 Testing
 
@@ -334,6 +409,9 @@ Task: e2f62903-48f4-4ae1-b607-15608c935a50, Status: PROCESSING, Progress: 50%
 - Stop the web service (docker-compose stop web) during a task.
 - Verify "Disconnected. Reconnecting..." and reconnection after 5 seconds.
 - Restart the service (sudo docker-compose start web) and verify if updates are showing as it was supposed to.
+
+![WebSocket Reconnection](resources/ui-reconnection.png)
+*Screenshot showing the "Disconnected. Reconnecting..." message and successful reconnection*
 
 ### Concurrency:
 - Start two tasks and observe both sets of updates.
