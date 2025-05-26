@@ -244,6 +244,7 @@ task-1/
 │   ├── tasks.py             # Celery task definitions (e.g., long_running_task)
 │   └── index.html           # Web interface for starting tasks and viewing updates
 │
+├── resources/               # Diagrams and screenshots are present here
 ├── Dockerfile               # Docker configuration for building the app image
 ├── docker-compose.yml       # Docker Compose configuration for multi-container setup
 ├── README.md                # Project documentation (this file)
@@ -266,8 +267,6 @@ The system is designed as a distributed application with components interacting 
 ## Architecture Diagram (Conceptual)
 ![Architecture Diagram](resources/architecture.jpg)
 
-## Simply put:
-![Architecture2 Diagram](resources/architecture2.png)
 
 ## Components
 ### FastAPI Server (web service):
@@ -289,8 +288,9 @@ The system is designed as a distributed application with components interacting 
 - Displays the web interface (index.html).
 - Starts tasks via HTTP requests and receives real-time updates via WebSocket.
 
-## Architecture Diagram (Conceptual)
-![Architecture Diagram](resources/architecture.jpg)
+## Simply put:
+![Architecture2 Diagram](resources/architecture2.png)
+
 - Client <--> FastAPI: HTTP (/start-task) to initiate tasks, WebSocket (/ws/task/{task_id}) for updates.
 - FastAPI <--> Celery: FastAPI sends tasks to Celery via Redis.
 - Celery <--> Redis: Celery updates task states in Redis and publishes updates.
@@ -384,7 +384,7 @@ Task: e2f62903-48f4-4ae1-b607-15608c935a50, Status: PROCESSING, Progress: 50%
 3. Click "Observe Task" to see its current and future updates.
 
 ![Observing an Existing Task](resources/ss/ui-observe-task.png)
-*Screenshot showing the task ID input field and "Observe Task" functionality*
+*Screenshot showing the task ID input field and "Observe Task" functionality.*
 *Started observing from 25% progress*
 
 ## Concurrent Monitoring
@@ -392,7 +392,7 @@ Task: e2f62903-48f4-4ae1-b607-15608c935a50, Status: PROCESSING, Progress: 50%
 - Updates for each task are appended to the status display.
 - Each task progress is tracked independently.
 
-![Concurrent Task Monitoring](resources/ss/ui-concurrent-tasks.png)
+![Concurrent Task Monitoring](resources/ss/ui-concurrent-or-parallel-task-running.png)
 *Screenshot showing multiple tasks being monitored simultaneously with their respective progress updates*
 
 # 🧪 Testing
@@ -405,16 +405,51 @@ Task: e2f62903-48f4-4ae1-b607-15608c935a50, Status: PROCESSING, Progress: 50%
 ### Existing Task:
 - Observe a running task with its task_id and check updates.
 
-### Reconnection:
-- Stop the web service (docker-compose stop web) during a task.
-- Verify "Disconnected. Reconnecting..." and reconnection after 5 seconds.
-- Restart the service (sudo docker-compose start web) and verify if updates are showing as it was supposed to.
-
-![WebSocket Reconnection](resources/ui-reconnection.png)
-*Screenshot showing the "Disconnected. Reconnecting..." message and successful reconnection*
-
 ### Concurrency:
 - Start two tasks and observe both sets of updates.
+
+### Reconnection:
+Test the WebSocket reconnection functionality by following these stages:
+
+#### Stage 1: Normal Task Operation
+Start a task and observe normal progress updates.
+
+![Normal Task Operation](resources/ss/reconnection/ui-normal-operation.png)
+*Screenshot showing a task running normally with real-time updates*
+
+#### Stage 2: Stop Web Service
+Stop the web service during task execution:
+```bash
+docker-compose stop web
+```
+
+#### Stage 3: Disconnection Detection
+The client detects the WebSocket disconnection and shows the reconnecting message.
+
+![Disconnection Detected](resources/ss/reconnection/ui-disconnection-detected.png)
+*Screenshot showing "Disconnected from <task_id>. Reconnecting..." message*
+
+#### Stage 4: Reconnection Attempts
+The client automatically attempts to reconnect every 5 seconds.
+
+![Reconnection Attempts](resources/ss/reconnection/ui-reconnection-attempts.png)
+*Screenshot showing ongoing reconnection attempts*
+
+#### Stage 5: Restart Web Service
+Restart the web service:
+```bash
+docker-compose start web
+```
+
+#### Stage 6: Successful Reconnection
+The client successfully reconnects and retrieves the latest task state.
+
+![Successful Reconnection](resources/ss/reconnection/ui-successful-reconnection.png)
+*Screenshot showing successful reconnection and resumed task updates*
+
+#### Stage 7: Resumed Updates
+Task updates continue seamlessly after reconnection.
+
 
 ## Tools for Testing
 
