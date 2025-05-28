@@ -288,8 +288,6 @@ The system is designed as a distributed application with components interacting 
 - Displays the web interface (index.html).
 - Starts tasks via HTTP requests and receives real-time updates via WebSocket.
 
-## Simply put:
-![Architecture2 Diagram](resources/architecture2.png)
 
 - Client <--> FastAPI: HTTP (/start-task) to initiate tasks, WebSocket (/ws/task/{task_id}) for updates.
 - FastAPI <--> Celery: FastAPI sends tasks to Celery via Redis.
@@ -297,16 +295,43 @@ The system is designed as a distributed application with components interacting 
 - FastAPI <--> Redis: FastAPI listens to Redis Pub/Sub to get updates and forwards them to the client.
 
 # 🔄 Entire Workflow
-## Main workflow:
---------------
+## Two separate workflow:
+The entire workflow can be divdied into two parts for better visualization.
+### Part 1: Task Initiation and Processing Flow:
+![Task Initiation and Processing Flow](resources/flow/part-1.png)
+- **Client Initiates a Task via FastAPI**:
+  - Browser sends HTTP POST to `/start-task` when "Start New Task" is clicked.
+  - FastAPI generates a unique `task_id` and returns it to the client.
+- **FastAPI Pushes the Task to the Redis Broker Queue**:
+  - Submits task via `long_running_task.delay(task_id)` to Redis broker.
+  - Redis queues the task, ensuring it’s safe until processed.
+- **Celery Worker Pulls the Task from the Redis Queue and Executes It**:
+  - Worker checks Redis for tasks and pulls one when available.
+  - Executes `long_running_task`, progressing through 4 stages (5s each, 20s total).
+
+
+### Part 2: Real-Time Update Flow:
+![Real-Time Update Flow](resources/flow/part-2-upt.png)
+- **Celery Worker Publishes Updates via Redis Pub/Sub**:
+  - Updates task state in Redis backend with `redis_client.hset`.
+  - Publishes stage updates (e.g., "PROCESSING") to `task:{task_id}:updates` channel.
+- **FastAPI Listens for Updates via Redis Pub/Sub**:
+  - WebSocket endpoint `/ws/task/{task_id}` subscribes to the Pub/Sub channel.
+  - Listens continuously and fetches latest state with `redis_client.hgetall`.
+- **FastAPI Sends Updates to the Client via WebSocket**:
+  - Sends JSON payload (e.g., `status`, `progress`) to client’s WebSocket.
+  - Client’s WebSocket receives the update in `index.html`.
+- **Client Displays the Updates in the Browser**:
+  - JavaScript updates the UI, appending progress (e.g., "50%") to status div.
+
+
+## Combined workflow:
 ![Flow](https://www.mermaidchart.com/raw/36b18d8c-43f6-49d9-8058-eb9a6d08fd09?theme=light&version=v0.1&format=svg)
 
 ## Redis Publisher Subscriber workflow
------------------------------------
 ![Redis Pub Sub flow](resources/Redis%20PubSub.jpg)
 
 ## Websocket
------------------------------------
 ![websocket](resources/websocket.jpg)
 ## 1. User Interaction
 - The user accesses http://127.0.0.1:8000, loading index.html.
