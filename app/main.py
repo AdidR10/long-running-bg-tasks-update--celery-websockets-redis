@@ -1,14 +1,36 @@
 # FastAPI app with WebSocket and HTTP endpoints
 import uuid
 import asyncio
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, FileResponse
+# from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from redis import Redis
 import aioredis
 from app.tasks import long_running_task
 import time
 
 app = FastAPI()
+
+# # Add CORS middleware - THIS IS THE KEY ADDITION
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "http://localhost:8000",
+#         "http://127.0.0.1:8000",
+#         "http://localhost",
+#         "http://127.0.0.1"
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+#     allow_headers=["*"],
+# )
+
+# Add environment variable configuration
+API_HOST = os.getenv("API_HOST", "127.0.0.1")
+API_PORT = os.getenv("API_PORT", "8000")
+API_PROTOCOL = os.getenv("API_PROTOCOL", "http")
+WS_PROTOCOL = os.getenv("WS_PROTOCOL", "ws")
 
 # Initialize Redis client
 redis_client = Redis(host="redis", port=6379, db=0)
@@ -19,6 +41,14 @@ active_connections = {}
 @app.get("/")
 async def get_index():
     return FileResponse("app/index.html")
+
+@app.get("/config")
+async def get_config():
+    """Provide frontend configuration."""
+    return JSONResponse({
+        "api_base_url": f"{API_PROTOCOL}://{API_HOST}:{API_PORT}",
+        "ws_base_url": f"{WS_PROTOCOL}://{API_HOST}:{API_PORT}"
+    })
 
 @app.post("/start-task")
 async def start_task():
